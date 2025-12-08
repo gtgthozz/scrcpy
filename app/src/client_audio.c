@@ -307,7 +307,11 @@ sc_microphone_run(void *data) {
             if (out_samples <= 0)
                 continue;
 
+            int fifo_size_before = av_audio_fifo_size(fifo);
             av_audio_fifo_write(fifo, (void **)out_frame->data, out_samples);
+            int fifo_size_after = av_audio_fifo_size(fifo);
+            LOGD("[CLIENT] Resampled %d->%d samples, FIFO: %d->%d",
+                 in_frame->nb_samples, out_samples, fifo_size_before, fifo_size_after);
 
             while (av_audio_fifo_size(fifo) >= opus_ctx->frame_size) {
                 av_audio_fifo_read(fifo, (void **)out_frame->data,
@@ -326,6 +330,8 @@ sc_microphone_run(void *data) {
                     uint8_t size_buf[4];
                     sc_write32be(size_buf, size);
 
+                    int64_t send_time = av_gettime_relative();
+
                     // Send packet size (4 bytes, big-endian)
                     ssize_t sent = net_send_all(mic_socket, size_buf, 4);
                     if (sent < 4) {
@@ -343,6 +349,10 @@ sc_microphone_run(void *data) {
                         av_packet_unref(out_pkt);
                         break;
                     }
+
+                    int64_t send_duration = av_gettime_relative() - send_time;
+                    LOGD("[CLIENT] Sent Opus packet: size=%u bytes, duration=%" PRId64 "us, FIFO remaining=%d",
+                         size, send_duration, av_audio_fifo_size(fifo));
 
                     av_packet_unref(out_pkt);
 

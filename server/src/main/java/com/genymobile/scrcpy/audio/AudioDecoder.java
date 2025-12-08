@@ -71,11 +71,15 @@ public class AudioDecoder {
         byte[] sizeBuffer = new byte[4];
         MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
         long presentationTime = 0;
+        long startTime = System.nanoTime();
+        int packetsReceived = 0;
+        int pcmBytesWritten = 0;
 
         while (running) {
             // Feed input packets (non-blocking)
             int inputIndex = decoder.dequeueInputBuffer(0);
             if (inputIndex >= 0) {
+                long readStartTime = System.nanoTime();
                 int bytesRead = bis.read(sizeBuffer);
                 if (bytesRead == 4) {
                     int packetSize = ((sizeBuffer[0] & 0xFF) << 24) |
@@ -86,11 +90,18 @@ public class AudioDecoder {
                     if (packetSize > 0 && packetSize <= 100000) {
                         byte[] opusData = new byte[packetSize];
                         int actualRead = bis.read(opusData);
+                        long readDuration = (System.nanoTime() - readStartTime) / 1000; // microseconds
+
                         if (actualRead == packetSize) {
                             ByteBuffer inputBuffer = decoder.getInputBuffer(inputIndex);
                             inputBuffer.clear();
                             inputBuffer.put(opusData);
                             decoder.queueInputBuffer(inputIndex, 0, packetSize, presentationTime, 0);
+                            packetsReceived++;
+
+                            Ln.d("[DECODER] Received Opus packet #" + packetsReceived +
+                                 ": size=" + packetSize + " bytes, read_time=" + readDuration + "us");
+
                             // Increment presentation time (20ms per frame at 48kHz = 960 samples)
                             presentationTime += 20000; // microseconds
                         }
@@ -111,8 +122,17 @@ public class AudioDecoder {
                     outputBuffer.position(bufferInfo.offset);
                     outputBuffer.limit(bufferInfo.offset + bufferInfo.size);
                     outputBuffer.get(pcmData);
+
+                    long writeStartTime = System.nanoTime();
                     pcmOutput.write(pcmData);
                     pcmOutput.flush();
+                    long writeDuration = (System.nanoTime() - writeStartTime) / 1000; // microseconds
+
+                    pcmBytesWritten += bufferInfo.size;
+                    long elapsedMs = (System.nanoTime() - startTime) / 1000000;
+
+                    Ln.d("[DECODER] Decoded PCM: size=" + bufferInfo.size + " bytes, write_time=" +
+                         writeDuration + "us, total_pcm=" + pcmBytesWritten + " bytes, elapsed=" + elapsedMs + "ms");
                 }
                 decoder.releaseOutputBuffer(outputIndex, false);
             } else if (outputIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {

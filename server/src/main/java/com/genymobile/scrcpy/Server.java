@@ -208,18 +208,39 @@ public final class Server {
 
         audioTrack.play();
 
+        Ln.d("[INJECTOR] AudioTrack started. Buffer size: " + audioTrack.getBufferSizeInFrames() +
+             " frames, State: " + audioTrack.getState() + ", Playback state: " + audioTrack.getPlayState());
+
         new Thread(() -> {
             byte[] audioBuffer = new byte[4096];
             while (true) {
+            long startTime = System.nanoTime();
+            int totalBytesWritten = 0;
+            int readCount = 0;
+
                 try {
+                    long readStartTime = System.nanoTime();
                     int bytesRead = pis.read(audioBuffer);
-                    if (bytesRead <= 0) {
-                      break;
-                    }
-                    audioTrack.write(audioBuffer, 0, bytesRead);
+                    long readDuration = (System.nanoTime() - readStartTime) / 1000; // microseconds
+
+                    long writeStartTime = System.nanoTime();
+                    int bytesWritten = audioTrack.write(audioBuffer, 0, bytesRead);
+                    long writeDuration = (System.nanoTime() - writeStartTime) / 1000; // microseconds
+
+                    totalBytesWritten += bytesWritten;
+                    readCount++;
+                    long elapsedMs = (System.nanoTime() - startTime) / 1000000;
+
+                    // Get AudioTrack status
+                    int playbackHeadPosition = audioTrack.getPlaybackHeadPosition();
+                    int bufferSize = audioTrack.getBufferSizeInFrames();
+
+                    Ln.d("[INJECTOR] Read #" + readCount + ": read=" + bytesRead + " bytes (" +
+                         readDuration + "us), wrote=" + bytesWritten + " bytes (" + writeDuration +
+                         "us), total=" + totalBytesWritten + ", elapsed=" + elapsedMs +
+                         "ms, playhead=" + playbackHeadPosition + "/" + bufferSize);
                 } catch (Exception e) {
-                    Ln.e(e.toString());
-                    break;
+                    Ln.e("[INJECTOR] Error: " + e.toString());
                 }
             }
         }, "client-audio-injector").start();
