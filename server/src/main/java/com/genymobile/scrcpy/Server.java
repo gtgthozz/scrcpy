@@ -218,41 +218,16 @@ public final class Server {
             int totalBytesWritten = 0;
             int readCount = 0;
                 try {
-                    long readStartTime = System.nanoTime();
                     int bytesRead = pis.read(audioBuffer);
-                    long readDuration = (System.nanoTime() - readStartTime) / 1000; // microseconds
-
-                    // Use NON-BLOCKING write to avoid bursts
-                    long writeStartTime = System.nanoTime();
-                    int bytesWritten = audioTrack.write(audioBuffer, 0, bytesRead, AudioTrack.WRITE_NON_BLOCKING);
-                    long writeDuration = (System.nanoTime() - writeStartTime) / 1000; // microseconds
-
-                    totalBytesWritten += bytesWritten;
-                    readCount++;
-                    long elapsedMs = (System.nanoTime() - startTime) / 1000000;
-
-                    // Get AudioTrack status
-                    int playbackHeadPosition = audioTrack.getPlaybackHeadPosition();
-                    int bufferSize = audioTrack.getBufferSizeInFrames();
-
-                    // If we couldn't write all bytes (buffer full), log warning
-                    if (bytesWritten < bytesRead) {
-                        Ln.d("[INJECTOR] Buffer full! Read #" + readCount + ": read=" + bytesRead +
-                             ", wrote=" + bytesWritten + " (" + writeDuration + "us), dropped=" +
-                             (bytesRead - bytesWritten) + ", playhead=" + playbackHeadPosition + "/" + bufferSize);
-                    } else {
-                        Ln.d("[INJECTOR] Read #" + readCount + ": read=" + bytesRead + " bytes (" +
-                             readDuration + "us), wrote=" + bytesWritten + " bytes (" + writeDuration +
-                             "us), total=" + totalBytesWritten + ", elapsed=" + elapsedMs +
-                             "ms, playhead=" + playbackHeadPosition + "/" + bufferSize);
+                    if (bytesRead <= 0) {
+                        break; // End of stream
                     }
 
-                    // Small delay to avoid tight loop when buffer is full
-                    if (bytesWritten < bytesRead) {
-                        Thread.sleep(5);
-                    }
+                    // Blocking write - AudioTrack will pace us at playback speed
+                    audioTrack.write(audioBuffer, 0, bytesRead);
                 } catch (Exception e) {
-                    Ln.e("[INJECTOR] Error: " + e.toString());
+                    Ln.e("Audio injection error: " + e.toString());
+                    break;
                 }
             }
         }, "client-audio-injector").start();
@@ -356,8 +331,7 @@ public final class Server {
                     InputStream is = s.getInputStream();
                     BufferedInputStream bis = new BufferedInputStream(is);
                     PipedOutputStream pos = new PipedOutputStream();
-                    //PipedInputStream pis = new PipedInputStream(pos, 65535);
-                    PipedInputStream pis = new PipedInputStream(pos, 500*1024);
+                    PipedInputStream pis = new PipedInputStream(pos, 500 * 1024); //500kb too big?
                     AudioDecoder decoder = new AudioDecoder();
                     decoder.start(bis, pos);
                     poc(pis);
