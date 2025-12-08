@@ -217,14 +217,14 @@ public final class Server {
             long startTime = System.nanoTime();
             int totalBytesWritten = 0;
             int readCount = 0;
-
                 try {
                     long readStartTime = System.nanoTime();
                     int bytesRead = pis.read(audioBuffer);
                     long readDuration = (System.nanoTime() - readStartTime) / 1000; // microseconds
 
+                    // Use NON-BLOCKING write to avoid bursts
                     long writeStartTime = System.nanoTime();
-                    int bytesWritten = audioTrack.write(audioBuffer, 0, bytesRead);
+                    int bytesWritten = audioTrack.write(audioBuffer, 0, bytesRead, AudioTrack.WRITE_NON_BLOCKING);
                     long writeDuration = (System.nanoTime() - writeStartTime) / 1000; // microseconds
 
                     totalBytesWritten += bytesWritten;
@@ -235,10 +235,22 @@ public final class Server {
                     int playbackHeadPosition = audioTrack.getPlaybackHeadPosition();
                     int bufferSize = audioTrack.getBufferSizeInFrames();
 
-                    Ln.d("[INJECTOR] Read #" + readCount + ": read=" + bytesRead + " bytes (" +
-                         readDuration + "us), wrote=" + bytesWritten + " bytes (" + writeDuration +
-                         "us), total=" + totalBytesWritten + ", elapsed=" + elapsedMs +
-                         "ms, playhead=" + playbackHeadPosition + "/" + bufferSize);
+                    // If we couldn't write all bytes (buffer full), log warning
+                    if (bytesWritten < bytesRead) {
+                        Ln.d("[INJECTOR] Buffer full! Read #" + readCount + ": read=" + bytesRead +
+                             ", wrote=" + bytesWritten + " (" + writeDuration + "us), dropped=" +
+                             (bytesRead - bytesWritten) + ", playhead=" + playbackHeadPosition + "/" + bufferSize);
+                    } else {
+                        Ln.d("[INJECTOR] Read #" + readCount + ": read=" + bytesRead + " bytes (" +
+                             readDuration + "us), wrote=" + bytesWritten + " bytes (" + writeDuration +
+                             "us), total=" + totalBytesWritten + ", elapsed=" + elapsedMs +
+                             "ms, playhead=" + playbackHeadPosition + "/" + bufferSize);
+                    }
+
+                    // Small delay to avoid tight loop when buffer is full
+                    if (bytesWritten < bytesRead) {
+                        Thread.sleep(5);
+                    }
                 } catch (Exception e) {
                     Ln.e("[INJECTOR] Error: " + e.toString());
                 }
