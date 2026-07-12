@@ -25,6 +25,11 @@ jobs:
             mingw-w64-tools \
             libz-mingw-w64-dev \
             openjdk-17-jdk
+      - name: Show repository structure
+        run: |
+          pwd
+          ls -la
+          find . -maxdepth 2 -type f | sort
 
       - name: Make release script executable
         run: chmod +x release.sh
