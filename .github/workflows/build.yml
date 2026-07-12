@@ -28,6 +28,11 @@ jobs:
             mingw-w64 \
             mingw-w64-tools \
             libz-mingw-w64-dev \
+            libavformat-dev \
+            libavcodec-dev \
+            libavutil-dev \
+            libswresample-dev \
+            libavdevice-dev \
             zip \
             unzip \
             curl \
@@ -41,10 +46,10 @@ jobs:
           find . -maxdepth 2 -type f | sort
 
       - name: Make release script executable
-        run: chmod +x release/release.sh
+        run: chmod +x release/build_windows.sh 64
 
       - name: Build
-        run: ./release/release.sh
+        run: ./release/build_windows.sh 64
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
