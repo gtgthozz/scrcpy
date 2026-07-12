@@ -25,14 +25,10 @@ jobs:
             meson \
             ninja-build \
             pkg-config \
+            nasm \
             mingw-w64 \
             mingw-w64-tools \
             libz-mingw-w64-dev \
-            libavformat-dev \
-            libavcodec-dev \
-            libavutil-dev \
-            libswresample-dev \
-            libavdevice-dev \
             zip \
             unzip \
             curl \
