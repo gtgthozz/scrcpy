@@ -21,10 +21,19 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y \
+            openjdk-17-jdk \
+            meson \
+            ninja-build \
+            pkg-config \
             mingw-w64 \
             mingw-w64-tools \
             libz-mingw-w64-dev \
-            openjdk-17-jdk
+            zip \
+            unzip \
+            curl \
+            wget \
+            python3
+            
       - name: Show repository structure
         run: |
           pwd
