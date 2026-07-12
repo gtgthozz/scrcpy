@@ -1,0 +1,40 @@
+name: Build scrcpy (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+      - main
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            mingw-w64 \
+            mingw-w64-tools \
+            libz-mingw-w64-dev \
+            openjdk-17-jdk
+
+      - name: Make release script executable
+        run: chmod +x release.sh
+
+      - name: Build
+        run: ./release.sh
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: scrcpy-release
+          path: dist/**
