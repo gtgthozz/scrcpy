@@ -47,8 +47,13 @@ jobs:
       - name: Build
         run: ./release/build_windows.sh 64
 
-      - name: Upload artifacts
+      - name: Package release
+        run: |
+          cd release/work/build-win64
+          zip -r scrcpy-win64.zip dist
+      
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: scrcpy-release
-          path: dist/**
+          name: scrcpy-win64
+          path: release/work/build-win64/scrcpy-win64.zip
