@@ -90,7 +90,7 @@ else
     else
         # libavdevice is only used for V4L2 on Linux
         conf+=(
-            --disable-avdevice
+            # --disable-avdevice
         )
     fi
 
