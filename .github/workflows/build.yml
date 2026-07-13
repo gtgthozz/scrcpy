@@ -42,10 +42,10 @@ jobs:
           find . -maxdepth 2 -type f | sort
 
       - name: Make release script executable
-        run: chmod +x release/build_windows.sh
+        run: chmod +x release/release.sh
 
       - name: Build
-        run: ./release/build_windows.sh 64
+        run: ./release/release.sh
 
       - name: Package release
         run: |
