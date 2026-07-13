@@ -82,7 +82,7 @@ else
         --enable-indev=dshow
         --enable-indev=wasapi
         --enable-encoder=libopus
-        --enable-encoder=opus
+        # --enable-encoder=opus
         --enable-libopus
     )
 
