@@ -81,6 +81,9 @@ else
         --enable-avdevice
         --enable-indev=dshow
         --enable-indev=wasapi
+        --enable-encoder=libopus
+        --enable-encoder=opus
+        --enable-libopus
     )
 
     if [[ "$HOST" == linux ]]
