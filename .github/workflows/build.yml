@@ -2,9 +2,9 @@ name: Build scrcpy (Windows)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      # - forward-client-microphone
+  # push:
+  #   branches:
+  #     # - forward-client-microphone
   pull_request:
 
 jobs:
