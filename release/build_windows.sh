@@ -40,6 +40,7 @@ meson setup "$WINXX_BUILD_DIR" \
     -Db_lto=true \
     -Dcompile_server=false \
     -Dportable=true
+    -Dclient_audio=true
 ninja -C "$WINXX_BUILD_DIR"
 
 # Group intermediate outputs into a 'dist' directory
