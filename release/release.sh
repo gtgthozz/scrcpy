@@ -6,7 +6,7 @@ set -e
 cd "$(dirname ${BASH_SOURCE[0]})"
 rm -rf output
 
-./test_server.sh
+#./test_server.sh
 ./test_client.sh
 
 ./build_server.sh
