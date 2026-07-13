@@ -78,6 +78,9 @@ else
         --enable-muxer=opus
         --enable-muxer=flac
         --enable-muxer=wav
+        --enable-avdevice
+        --enable-indev=dshow
+        --enable-indev=wasapi
     )
 
     if [[ "$HOST" == linux ]]
