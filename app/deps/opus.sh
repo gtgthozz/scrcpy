@@ -38,20 +38,11 @@ else
         --prefix="$INSTALL_DIR/$DIRNAME"
         --disable-doc
         --disable-extra-programs
+        # Always build opus statically: FFmpeg consumes it via
+        # --pkg-config-flags=--static, including Windows shared builds.
+        --enable-static
+        --disable-shared
     )
-
-    if [[ "$LINK_TYPE" == static ]]
-    then
-        conf+=(
-            --enable-static
-            --disable-shared
-        )
-    else
-        conf+=(
-            --disable-static
-            --enable-shared
-        )
-    fi
 
     if [[ "$BUILD_TYPE" == cross ]]
     then
