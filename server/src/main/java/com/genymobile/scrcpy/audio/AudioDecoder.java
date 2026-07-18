@@ -76,30 +76,31 @@ public class AudioDecoder {
             // Feed input packets (non-blocking)
             int inputIndex = decoder.dequeueInputBuffer(0);
             if (inputIndex >= 0) {
-                int bytesRead = bis.read(sizeBuffer);
-                if (bytesRead == 4) {
-                    int packetSize = ((sizeBuffer[0] & 0xFF) << 24) |
-                                   ((sizeBuffer[1] & 0xFF) << 16) |
-                                   ((sizeBuffer[2] & 0xFF) << 8) |
-                                   (sizeBuffer[3] & 0xFF);
-
-                    if (packetSize > 0 && packetSize <= 100000) {
-                        byte[] opusData = new byte[packetSize];
-                        int actualRead = bis.read(opusData);
-                        if (actualRead == packetSize) {
-                            ByteBuffer inputBuffer = decoder.getInputBuffer(inputIndex);
-                            inputBuffer.clear();
-                            inputBuffer.put(opusData);
-                            decoder.queueInputBuffer(inputIndex, 0, packetSize, presentationTime, 0);
-                            // Increment presentation time (20ms per frame at 48kHz = 960 samples)
-                            presentationTime += 20000; // microseconds
-                        }
-                    }
-                } else if (bytesRead == -1) {
+                if (!readFully(bis, sizeBuffer, sizeBuffer.length)) {
                     // End of stream
                     decoder.queueInputBuffer(inputIndex, 0, 0, 0, MediaCodec.BUFFER_FLAG_END_OF_STREAM);
                     break;
                 }
+
+                int packetSize = ((sizeBuffer[0] & 0xFF) << 24) |
+                                 ((sizeBuffer[1] & 0xFF) << 16) |
+                                 ((sizeBuffer[2] & 0xFF) << 8) |
+                                 (sizeBuffer[3] & 0xFF);
+                if (packetSize <= 0 || packetSize > 100000) {
+                    throw new IOException("Invalid Opus packet size: " + packetSize);
+                }
+
+                byte[] opusData = new byte[packetSize];
+                if (!readFully(bis, opusData, packetSize)) {
+                    throw new IOException("Unexpected end of Opus stream");
+                }
+
+                ByteBuffer inputBuffer = decoder.getInputBuffer(inputIndex);
+                inputBuffer.clear();
+                inputBuffer.put(opusData);
+                decoder.queueInputBuffer(inputIndex, 0, packetSize, presentationTime, 0);
+                // Increment presentation time (20ms per frame at 48kHz = 960 samples)
+                presentationTime += 20000; // microseconds
             }
 
             // Drain available output
@@ -119,6 +120,26 @@ public class AudioDecoder {
                 // No output available yet, continue feeding input
             }
         }
+    }
+
+    /**
+     * Read exactly {@code length} bytes unless the stream ends before any byte
+     * is available. A LocalSocket is a stream: a single read() is not a packet
+     * boundary and may return only part of an Opus frame.
+     */
+    private static boolean readFully(BufferedInputStream input, byte[] buffer, int length) throws IOException {
+        int offset = 0;
+        while (offset < length) {
+            int read = input.read(buffer, offset, length - offset);
+            if (read == -1) {
+                if (offset == 0) {
+                    return false;
+                }
+                throw new IOException("Unexpected end of stream");
+            }
+            offset += read;
+        }
+        return true;
     }
 
     public void stop() {
