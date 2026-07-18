@@ -6,6 +6,7 @@
 #include <libavdevice/avdevice.h>
 #include <libavformat/avformat.h>
 #include <libavutil/audio_fifo.h>
+#include <libavutil/mathematics.h>
 #include <libavutil/time.h>
 #include <libswresample/swresample.h>
 #include <inttypes.h>
@@ -266,6 +267,7 @@ sc_microphone_run(void *data) {
     out_frame->ch_layout = opus_ctx->ch_layout;
     out_frame->sample_rate = opus_ctx->sample_rate;
     out_frame->nb_samples = opus_ctx->frame_size;
+    int out_frame_capacity = out_frame->nb_samples;
     LOGD("setting nb_samples to %d", opus_ctx->frame_size);
     if (av_frame_get_buffer(out_frame, 0) < 0) {
         LOGE("Could not allocate frame buffer");
@@ -324,9 +326,37 @@ sc_microphone_run(void *data) {
             continue;
 
         while (avcodec_receive_frame(in_codec_ctx, in_frame) >= 0) {
-            // Resample to Opus format
+            // A frame captured at 44.1 kHz may require more than one 960-sample
+            // Opus frame after conversion to 48 kHz. Do not cap swr_convert()
+            // at opus_ctx->frame_size: it would retain an ever-growing resampler
+            // delay and starve the device-side AudioTrack periodically.
+            int max_out_samples = av_rescale_rnd(
+                swr_get_delay(swr_ctx, in_codec_ctx->sample_rate)
+                    + in_frame->nb_samples,
+                opus_ctx->sample_rate, in_codec_ctx->sample_rate, AV_ROUND_UP);
+            if (max_out_samples > out_frame_capacity) {
+                av_frame_unref(out_frame);
+                out_frame->format = opus_ctx->sample_fmt;
+                out_frame->ch_layout = opus_ctx->ch_layout;
+                out_frame->sample_rate = opus_ctx->sample_rate;
+                out_frame->nb_samples = max_out_samples;
+                if (av_frame_get_buffer(out_frame, 0) < 0) {
+                    LOGE("Could not resize resampling frame");
+                    should_stop = true;
+                    break;
+                }
+                out_frame_capacity = max_out_samples;
+            }
+
+            if (av_frame_make_writable(out_frame) < 0) {
+                LOGE("Could not make resampling frame writable");
+                should_stop = true;
+                break;
+            }
+
+            // Resample to Opus format.
             int out_samples =
-                    swr_convert(swr_ctx, (uint8_t **)out_frame->data, opus_ctx->frame_size,
+                    swr_convert(swr_ctx, (uint8_t **)out_frame->data, max_out_samples,
                                             (const uint8_t **)in_frame->data, in_frame->nb_samples);
 
             if (out_samples <= 0)

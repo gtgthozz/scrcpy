@@ -8,4 +8,4 @@ build/
 /x/
 local.properties
 /scrcpy-server
-adb_log.txt
+adb_log*.txt
